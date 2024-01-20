@@ -1,0 +1,111 @@
+service: notes-api
+frameworkVersion: '3'
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: dev
+  region: us-east-1
+functions:
+  authorizer:
+    handler: authorizer.handler
+  createNote:
+    handler: handler.createNote
+    environment:
+      TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    events:
+      - http:
+          method: post
+          path: notes
+          authorizer: authorizer
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: !GetAtt notesTable.Arn
+  updateNote:
+    handler: handler.updateNote
+    environment:
+      TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: !GetAtt notesTable.Arn
+    events:
+      - http:
+          method: put
+          path: notes/{id}
+          authorizer: authorizer
+
+  deleteNote:
+    handler: handler.deleteNote
+    environment:
+      TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:DeleteItem
+        Resource: !GetAtt notesTable.Arn
+    events:
+      - http:
+          path: notes/{id}
+          method: delete
+          authorizer: authorizer
+
+  allNotes:
+    handler: handler.allNotes
+    environment:
+      TABLE_NAME: !Ref notesTable
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan*
+        Resource: !GetAtt notesTable.Arn
+    events:
+      - http:
+          path: notes
+          method: get
+          authorizer: authorizer
+          
+resources:
+  Resources:
+    notesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: notes
+        AttributeDefinitions:
+          - AttributeName: notesId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: notesId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 2
+          WriteCapacityUnits: 2
+plugins:
+  - serverless-iam-roles-per-function
+  - serverless-offline
+
+
+# Transform: AWS::Serverless-2016-10-31
+# Resources:
+#   Api:
+#     Type: AWS::Serverless::Api
+#     Properties:
+#       Name: !Sub
+#         - ${ResourceName} From Stack ${AWS::StackName}
+#         - ResourceName: Api
+#       StageName: Prod
+#       DefinitionBody:
+#         openapi: '3.0'
+#         info: {}
+#         paths:
+#           /:
+#             get:
+#               responses: {}
+#       EndpointConfiguration: REGIONAL
+#       TracingEnabled: true
